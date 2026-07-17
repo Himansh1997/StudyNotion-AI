@@ -5,3 +5,8 @@ build
 *.log
 logs
 tmp
+credentials*.json
+client_secret*.json
+service-account*.json
+*.pem
+*.key
