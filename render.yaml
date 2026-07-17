@@ -14,7 +14,7 @@ services:
       - key: NODE_VERSION
         value: 20.15.0
       - key: CLIENT_URL
-        value: http://localhost:3000
+        value: https://studynotion-ai.vercel.app
       - key: OPENAI_MODEL
         value: gpt-5.6-terra
       - key: AI_REQUESTS_PER_HOUR
