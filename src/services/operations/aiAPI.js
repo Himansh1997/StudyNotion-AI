@@ -7,6 +7,8 @@ const safeError = (error) => {
   const code = error?.response?.data?.code || "AI_REQUEST_FAILED"
   const knownMessages = {
     AI_NOT_CONFIGURED: "AI features are not configured yet.",
+    AI_REQUEST_REJECTED: "The AI request format was rejected. Please retry.",
+    AI_AUTH_FAILED: "The AI service authentication failed.",
     AI_RATE_LIMITED: "You have reached the AI request limit. Try again later.",
     COURSE_ENROLLMENT_REQUIRED: "You must be enrolled in this course.",
     AI_UNAVAILABLE: "The AI service is temporarily unavailable.",
