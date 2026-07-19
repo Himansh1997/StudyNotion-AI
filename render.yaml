@@ -16,7 +16,7 @@ services:
       - key: CLIENT_URL
         value: https://studynotion-ai.vercel.app
       - key: OPENAI_MODEL
-        value: gpt-5.6-terra
+        value: gpt-5.4-mini
       - key: AI_REQUESTS_PER_HOUR
         value: 20
       - key: EMAIL_REQUEST_TIMEOUT_MS

@@ -12,6 +12,7 @@ export const sidebarLinks = [
     name: "Dashboard",
     path: "/dashboard/instructor",
     type: ACCOUNT_TYPE.INSTRUCTOR,
+    requiresApproval: true,
     icon: "VscDashboard",
   },
   {
@@ -19,6 +20,7 @@ export const sidebarLinks = [
     name: "My Courses",
     path: "/dashboard/my-courses",
     type: ACCOUNT_TYPE.INSTRUCTOR,
+    requiresApproval: true,
     icon: "VscVm",
   },
   {
@@ -26,6 +28,7 @@ export const sidebarLinks = [
     name: "Add Course",
     path: "/dashboard/add-course",
     type: ACCOUNT_TYPE.INSTRUCTOR,
+    requiresApproval: true,
     icon: "VscAdd",
   },
   {

@@ -35,6 +35,7 @@ export default function Sidebar() {
         <div className="flex min-w-max flex-row md:min-w-0 md:flex-col">
           {sidebarLinks.map((link) => {
             if (link.type && user?.accountType !== link.type) return null
+            if (link.requiresApproval && !user?.approved) return null
             return (
               <SidebarLink key={link.id} link={link} iconName={link.icon} />
             )

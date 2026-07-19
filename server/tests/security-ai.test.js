@@ -1,9 +1,15 @@
 const mockResponsesCreate = jest.fn()
+const mockRazorpayOrderCreate = jest.fn()
 
 jest.mock("openai", () =>
   jest.fn().mockImplementation(() => ({ responses: { create: mockResponsesCreate } }))
 )
 
+jest.mock("../config/razorpay", () => ({
+  getRazorpay: () => ({ orders: { create: mockRazorpayOrderCreate } }),
+}))
+
+const bcrypt = require("bcryptjs")
 const crypto = require("crypto")
 const jwt = require("jsonwebtoken")
 const request = require("supertest")
@@ -77,6 +83,27 @@ const createCourse = async ({ instructor, students = [], lessonCount = 2 }) => {
 
 beforeEach(() => {
   mockResponsesCreate.mockReset()
+  mockRazorpayOrderCreate.mockReset()
+})
+
+test("pending instructors can sign in but approved instructor routes remain blocked", async () => {
+  const instructor = await createUser("Instructor", "pending-login", false)
+  instructor.password = await bcrypt.hash("strong-password", 10)
+  await instructor.save()
+
+  const login = await request(app).post("/api/v1/auth/login").send({
+    email: instructor.email,
+    password: "strong-password",
+  })
+  expect(login.status).toBe(200)
+  expect(login.body.user).toMatchObject({ accountType: "Instructor", approved: false })
+  expect(login.body.message).toMatch(/awaiting approval/i)
+
+  const protectedRoute = await request(app)
+    .get("/api/v1/course/getInstructorCourses")
+    .set("Authorization", `Bearer ${login.body.token}`)
+  expect(protectedRoute.status).toBe(403)
+  expect(protectedRoute.body.code).toBe("INSTRUCTOR_NOT_APPROVED")
 })
 
 test("unauthenticated AI access and course deletion are rejected", async () => {
@@ -316,4 +343,25 @@ test("stored payment cannot be switched to another course or reused", async () =
     .send(body)
   expect(reused.status).toBe(409)
   expect(reused.body.code).toBe("PAYMENT_ALREADY_PROCESSED")
+})
+
+test("payment order returns the public Razorpay Key ID but never the secret", async () => {
+  const instructor = await createUser("Instructor", "payment-key-owner")
+  const student = await createUser("Student", "payment-key-student")
+  const { course } = await createCourse({ instructor })
+  mockRazorpayOrderCreate.mockResolvedValue({ id: "order_public_key_test" })
+
+  const response = await request(app)
+    .post("/api/v1/payment/capturePayment")
+    .set("Authorization", auth(student))
+    .send({ courses: [course._id] })
+
+  expect(response.status).toBe(201)
+  expect(response.body.data).toMatchObject({
+    id: "order_public_key_test",
+    keyId: process.env.RAZORPAY_KEY,
+    amount: 49900,
+    currency: "INR",
+  })
+  expect(JSON.stringify(response.body)).not.toContain(process.env.RAZORPAY_SECRET)
 })

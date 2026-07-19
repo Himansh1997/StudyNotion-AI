@@ -45,7 +45,14 @@ exports.capturePayment = async (req, res, next) => {
     })
     res.status(201).json({
       success: true,
-      data: { id: order.id, amount: expectedAmount, currency: "INR" },
+      // The Key ID is public by design. Returning it with the server-created
+      // order removes a stale duplicate frontend setting; the secret stays here.
+      data: {
+        id: order.id,
+        amount: expectedAmount,
+        currency: "INR",
+        keyId: process.env.RAZORPAY_KEY,
+      },
     })
   } catch (error) {
     next(error)

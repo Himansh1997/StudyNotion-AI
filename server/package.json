@@ -9,6 +9,7 @@
 	"scripts": {
 		"start": "node index.js",
 		"dev": "nodemon index.js",
+		"approve:instructor": "node scripts/approveInstructor.js",
 		"check": "node --check index.js && node scripts/checkSyntax.js && node scripts/validateDemoCatalog.js",
 		"test": "jest --runInBand --detectOpenHandles"
 	},

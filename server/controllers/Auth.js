@@ -87,9 +87,6 @@ exports.login = async (req, res, next) => {
       throw new ApiError(401, "Invalid email or password", "INVALID_CREDENTIALS")
     }
     if (!user.active) throw new ApiError(403, "This account is disabled", "ACCOUNT_DISABLED")
-    if (user.accountType === "Instructor" && !user.approved) {
-      throw new ApiError(403, "Instructor account is awaiting approval", "INSTRUCTOR_NOT_APPROVED")
-    }
     if (!process.env.JWT_SECRET) {
       throw new ApiError(500, "Authentication is not configured", "AUTH_NOT_CONFIGURED")
     }
@@ -111,7 +108,15 @@ exports.login = async (req, res, next) => {
         secure: process.env.NODE_ENV === "production",
       })
       .status(200)
-      .json({ success: true, token, user: safeUser, message: "User login successful" })
+      .json({
+        success: true,
+        token,
+        user: safeUser,
+        message:
+          user.accountType === "Instructor" && !user.approved
+            ? "Login successful. Instructor access is awaiting approval"
+            : "User login successful",
+      })
   } catch (error) {
     next(error)
   }

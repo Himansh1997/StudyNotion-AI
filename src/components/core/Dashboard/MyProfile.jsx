@@ -3,6 +3,7 @@ import { useSelector } from "react-redux"
 import { useNavigate } from "react-router-dom"
 
 import { formattedDate } from "../../../utils/dateFormatter"
+import { ACCOUNT_TYPE } from "../../../utils/constants"
 import IconBtn from "../../Common/IconBtn"
 
 export default function MyProfile() {
@@ -14,6 +15,13 @@ export default function MyProfile() {
       <h1 className="mb-14 text-3xl font-medium text-richblack-5">
         My Profile
       </h1>
+      {user?.accountType === ACCOUNT_TYPE.INSTRUCTOR && !user?.approved && (
+        <div className="mb-8 rounded-md border border-yellow-700 bg-yellow-900/30 p-4 text-yellow-25">
+          Your instructor account is signed in and awaiting approval. Course
+          creation and instructor tools will appear after an administrator
+          approves the account.
+        </div>
+      )}
       <div className="flex items-center justify-between rounded-md border-[1px] border-richblack-700 bg-richblack-800 p-8 px-12">
         <div className="flex items-center gap-x-4">
           <img

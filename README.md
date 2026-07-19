@@ -38,7 +38,6 @@ Keep `.env` files local. The application’s non-AI features continue to run wit
 | Variable | Required | Purpose |
 | --- | --- | --- |
 | `REACT_APP_BASE_URL` | Yes | Fresh Render API URL including `/api/v1`, for example `https://your-api.onrender.com/api/v1` |
-| `REACT_APP_RAZORPAY_KEY` | Yes for payments | Razorpay public key ID |
 
 ### Backend environment (Render)
 
@@ -48,7 +47,7 @@ Keep `.env` files local. The application’s non-AI features continue to run wit
 | `JWT_SECRET` | Yes | New high-entropy JWT signing secret |
 | `MONGODB_URL` | Yes | Fresh MongoDB connection string |
 | `OPENAI_API_KEY` | For AI | Server-only OpenAI project key; missing key yields `AI_NOT_CONFIGURED` |
-| `OPENAI_MODEL` | No | Defaults to `gpt-5.6-terra` |
+| `OPENAI_MODEL` | No | Defaults to `gpt-5.4-mini` |
 | `AI_REQUESTS_PER_HOUR` | No | Per-user AI limit; defaults to `30` |
 | `GMAIL_APPS_SCRIPT_URL` | For email | Google Apps Script web-app `/exec` URL |
 | `EMAIL_WEBHOOK_SECRET` | For email | High-entropy secret shared only by Render and Apps Script |
@@ -138,8 +137,9 @@ Health checks are available at `/` and `/health`.
 ## Security and access rules
 
 - Tokens are accepted only from an HTTP-only cookie or `Authorization: Bearer`; request-body JWTs are ignored.
-- Public signup accepts only Student or Instructor. New instructors remain unapproved until an Admin changes their approval state through a trusted administrative process.
+- Public signup accepts only Student or Instructor. New instructors may sign in while pending, but approved-instructor routes remain blocked until an Admin changes their approval state through a trusted administrative process.
 - Admins approve or revoke instructors with `PATCH /api/v1/auth/instructors/:userId/approval` and a boolean `approved` body.
+- For a one-owner portfolio deployment, the owner can approve an instructor from a trusted machine whose `server/.env` points at production: `npm --prefix server run approve:instructor -- instructor@example.com`. The command never prints the database credential.
 - Login, OTP, password reset, and AI endpoints are rate limited. OTPs are never returned or logged.
 - Course/section/lesson mutations require an approved instructor who owns the entire parent chain. Full videos require enrollment or course ownership.
 - Payment verification uses a stored immutable order containing user, course IDs, expected amount, and currency. Client course IDs/amounts are ignored after checkout, signatures are timing-safe, processed orders cannot be reused, and enrollment uses idempotent operations.
@@ -164,7 +164,7 @@ Backend tests use `mongodb-memory-server` and mock the OpenAI SDK. They make no 
 1. Create a new empty GitHub repository. Do not add the old repository as a remote. From this clean project, add only the new remote, review `git status`, then commit source files. `.env`, `node_modules`, `build`, coverage, logs, and temporary files are ignored.
 2. Create a new MongoDB database/user and new credentials for JWT, Brevo transactional email, Cloudinary, and Razorpay as appropriate. Do not reuse values from an old test deployment.
 3. In Render, create a new Blueprint/web service from the new repository using `render.yaml`. Enter every `sync: false` value. Initially set `CLIENT_URL` to the eventual Vercel origin; if Vercel is not created yet, update it immediately after step 4. Add `OPENAI_API_KEY` manually when ready.
-4. In Vercel, create a new project from the new repository. Set `REACT_APP_BASE_URL` to the fresh Render URL plus `/api/v1`, and set `REACT_APP_RAZORPAY_KEY` to the public Razorpay key. Deploy.
+4. In Vercel, create a new project from the new repository. Set `REACT_APP_BASE_URL` to the fresh Render URL plus `/api/v1` and deploy. The backend returns the public Razorpay Key ID with each order; the Razorpay secret remains server-only.
 5. Update Render `CLIENT_URL` to the exact Vercel production origin (no path), redeploy Render, and confirm `/health`, signup/login, payment sandbox flow, course access, and each AI feature.
 6. Leave Render automatic deploys disabled until the smoke test succeeds; enable them later if desired. Configure budget/rate alerts in OpenAI and payment-provider dashboards.
 

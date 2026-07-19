@@ -26,7 +26,7 @@ const generateStructured = async ({ input, format, schema, maxOutputTokens = 600
   let response
   try {
     response = await getClient().responses.create({
-      model: process.env.OPENAI_MODEL || "gpt-5.6-terra",
+      model: process.env.OPENAI_MODEL || "gpt-5.4-mini",
       input,
       store: false,
       max_output_tokens: maxOutputTokens,

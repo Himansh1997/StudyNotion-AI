@@ -59,6 +59,9 @@ const requireSubSectionOwnership = async ({
 const requireAiCourseAccess = async ({ courseId, user, feature }) => {
   const course = await getCourse(courseId, true)
   if (user.accountType === "Instructor") {
+    if (!user.approved) {
+      throw new ApiError(403, "Instructor account is awaiting approval", "INSTRUCTOR_NOT_APPROVED")
+    }
     if (!["quiz", "summary"].includes(feature) || !objectIdEquals(course.instructor, user.id)) {
       throw new ApiError(403, "This AI feature is not available for this course", "AI_ACCESS_DENIED")
     }

@@ -71,11 +71,11 @@ export function signUp(
       if (!response.data.success) {
         throw new Error(response.data.message)
       }
-      toast.success("Signup Successful")
+      toast.success(response.data.message || "Signup successful")
       navigate("/login")
     } catch (error) {
       console.log("SIGNUP API ERROR............", error)
-      toast.error("Signup Failed")
+      toast.error(error?.response?.data?.message || "Signup failed")
       navigate("/signup")
     }
     dispatch(setLoading(false))
@@ -99,7 +99,7 @@ export function login(email, password, navigate) {
         throw new Error(response.data.message)
       }
 
-      toast.success("Login Successful")
+      toast.success(response.data.message || "Login successful")
       dispatch(setToken(response.data.token))
       const userImage = response.data?.user?.image
         ? response.data.user.image
@@ -109,7 +109,7 @@ export function login(email, password, navigate) {
       navigate("/dashboard/my-profile")
     } catch (error) {
       console.log("LOGIN API ERROR............", error)
-      toast.error("Login Failed")
+      toast.error(error?.response?.data?.message || "Login failed")
     }
     dispatch(setLoading(false))
     toast.dismiss(toastId)
