@@ -29,9 +29,9 @@ services:
         sync: false
       - key: MONGODB_URL
         sync: false
-      - key: BREVO_API_KEY
+      - key: GMAIL_APPS_SCRIPT_URL
         sync: false
-      - key: MAIL_FROM_ADDRESS
+      - key: EMAIL_WEBHOOK_SECRET
         sync: false
       - key: MAIL_REPLY_TO
         sync: false
