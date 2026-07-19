@@ -6,7 +6,7 @@ import HighlightText from './HighlightText';
 
 const InstructorSection = () => {
   return (
-    <div>
+    <section id="instructor" tabIndex={-1} className="scroll-mt-24">
         <div className="flex flex-col lg:flex-row gap-20 items-center">
           <div className="lg:w-[50%]">
             <img
@@ -28,7 +28,7 @@ const InstructorSection = () => {
             </p>
 
             <div className="w-fit">
-              <CTAButton active={true} linkto={"/signup"}>
+              <CTAButton active={true} linkto={"/contact"}>
                 <div className="flex items-center gap-3">
                   Start Teaching Today
                   <FaArrowRight />
@@ -37,7 +37,7 @@ const InstructorSection = () => {
             </div>
           </div>
         </div>
-    </div>
+    </section>
   )
 }
 

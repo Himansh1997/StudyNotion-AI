@@ -26,7 +26,7 @@ const ExploreMore = () => {
   };
 
   return (
-    <div>
+    <section id="explore-courses" tabIndex={-1} className="scroll-mt-24">
       {/* Explore more section */}
       <div>
         <div className="text-4xl font-semibold text-center my-10">
@@ -71,7 +71,7 @@ const ExploreMore = () => {
           );
         })}
       </div>
-    </div>
+    </section>
   );
 };
 

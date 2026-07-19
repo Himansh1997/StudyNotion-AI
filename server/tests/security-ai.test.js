@@ -30,6 +30,10 @@ const PendingPayment = require("../models/PendingPayment")
 const auth = (user) =>
   `Bearer ${jwt.sign({ id: user._id, email: user.email }, process.env.JWT_SECRET)}`
 
+const geminiResponse = (content) => ({
+  choices: [{ message: { content: JSON.stringify(content) } }],
+})
+
 const createUser = async (accountType, suffix, approved = true) => {
   const profile = await Profile.create({ about: "Test profile" })
   return User.create({
@@ -229,12 +233,14 @@ test("quiz answers stay hidden before server-side grading", async () => {
     .set("Authorization", auth(student))
     .send({ courseId: course._id, questionCount: 5, difficulty: "Medium" })
   expect(generated.status).toBe(201)
+  expect(generated.body.cached).toBe(false)
   expect(generated.body.quiz.questions[0]).not.toHaveProperty("correctOptionIndex")
   expect(generated.body.quiz.questions[0]).not.toHaveProperty("explanation")
   expect(mockChatCompletionsCreate).toHaveBeenCalledWith(
     expect.objectContaining({
       model: "gemini-3.1-flash-lite",
       messages: expect.any(Array),
+      max_tokens: 6000,
       response_format: expect.objectContaining({
         type: "json_schema",
         json_schema: expect.objectContaining({ name: "course_quiz", strict: true }),
@@ -250,6 +256,88 @@ test("quiz answers stay hidden before server-side grading", async () => {
   expect(graded.body.score).toBe(5)
   expect(graded.body.results[0]).toMatchObject({ correctOptionIndex: 0, correct: true })
   expect(graded.body.results[0].explanation).toBe("Explanation 1")
+})
+
+test("summary generation calls Gemini instead of returning cached data", async () => {
+  process.env.GEMINI_API_KEY = "test-key-not-sent"
+  const instructor = await createUser("Instructor", "summary-owner")
+  const student = await createUser("Student", "summary-student")
+  const { course, section } = await createCourse({ instructor, students: [student] })
+  mockChatCompletionsCreate.mockResolvedValue(
+    geminiResponse({
+      overview: "A fresh grounded overview",
+      learningObjectives: ["Understand the core concepts"],
+      prerequisites: ["Basic foundations"],
+      keyPoints: ["Use trusted course content"],
+      sectionSummaries: [
+        {
+          sectionId: String(section._id),
+          title: "Provider title is replaced",
+          summary: "A grounded section summary",
+        },
+      ],
+      glossary: [{ term: "Grounding", definition: "Using trusted context" }],
+      revisionChecklist: ["Review the core concepts"],
+      estimatedStudyTime: "2 hours",
+    })
+  )
+
+  const response = await request(app)
+    .post("/api/v1/ai/summary/generate")
+    .set("Authorization", auth(student))
+    .send({ courseId: course._id, forceRegenerate: true })
+
+  expect(response.status).toBe(200)
+  expect(response.body.cached).toBe(false)
+  expect(response.body.summary.overview).toBe("A fresh grounded overview")
+  expect(response.body.summary.sectionSummaries[0].title).toBe("Core concepts")
+  expect(mockChatCompletionsCreate).toHaveBeenCalledWith(
+    expect.objectContaining({
+      model: "gemini-3.1-flash-lite",
+      max_tokens: 8000,
+      response_format: expect.objectContaining({
+        type: "json_schema",
+        json_schema: expect.objectContaining({ name: "course_summary", strict: true }),
+      }),
+    })
+  )
+})
+
+test("doubt solver creates a fresh Gemini-backed conversation", async () => {
+  process.env.GEMINI_API_KEY = "test-key-not-sent"
+  const instructor = await createUser("Instructor", "doubt-owner")
+  const student = await createUser("Student", "doubt-student")
+  const { course, section } = await createCourse({ instructor, students: [student] })
+  mockChatCompletionsCreate.mockResolvedValue(
+    geminiResponse({
+      answer: "A grounded answer from the course descriptions.",
+      supportedByCourse: true,
+      citations: [{ id: String(section._id), title: "ignored", type: "section" }],
+      suggestedFollowUpQuestions: ["What should I review next?"],
+    })
+  )
+
+  const response = await request(app)
+    .post("/api/v1/ai/conversations")
+    .set("Authorization", auth(student))
+    .send({ courseId: course._id, question: "What are the core concepts?" })
+
+  expect(response.status).toBe(201)
+  expect(response.body.answer).toBe("A grounded answer from the course descriptions.")
+  expect(response.body.citations[0]).toMatchObject({
+    id: String(section._id),
+    title: "Core concepts",
+  })
+  expect(mockChatCompletionsCreate).toHaveBeenCalledWith(
+    expect.objectContaining({
+      model: "gemini-3.1-flash-lite",
+      max_tokens: 5000,
+      response_format: expect.objectContaining({
+        type: "json_schema",
+        json_schema: expect.objectContaining({ name: "course_answer", strict: true }),
+      }),
+    })
+  )
 })
 
 test("conversations are private to their owner", async () => {
@@ -315,12 +403,75 @@ test("roadmap uses authenticated progress and validates real references", async 
       hoursPerWeek: 5,
     })
   expect(response.status).toBe(200)
+  expect(response.body.cached).toBe(false)
   expect(response.body.roadmap.currentProgressPercentage).toBe(50)
   expect(response.body.roadmap.weeklyPlan[0].relatedContent[0]).toMatchObject({
     id: String(section._id),
     title: "Core concepts",
   })
   expect(response.body.roadmap.weeklyPlan[0].estimatedHours).toBeLessThanOrEqual(5)
+  expect(mockChatCompletionsCreate).toHaveBeenCalledWith(
+    expect.objectContaining({
+      model: "gemini-3.1-flash-lite",
+      max_tokens: 10_000,
+      response_format: expect.objectContaining({
+        type: "json_schema",
+        json_schema: expect.objectContaining({ name: "learning_roadmap", strict: true }),
+      }),
+    })
+  )
+})
+
+test("provider failures are classified and logged without sensitive fields", async () => {
+  process.env.GEMINI_API_KEY = "test-key-not-sent"
+  const instructor = await createUser("Instructor", "provider-error-owner")
+  const student = await createUser("Student", "provider-error-student")
+  const { course } = await createCourse({ instructor, students: [student] })
+  const log = jest.spyOn(console, "error").mockImplementation(() => {})
+  const cases = [
+    { providerStatus: 400, responseStatus: 502, code: "AI_REQUEST_REJECTED" },
+    { providerStatus: 401, responseStatus: 503, code: "AI_AUTH_FAILED" },
+    { providerStatus: 403, responseStatus: 503, code: "AI_AUTH_FAILED" },
+    { providerStatus: 429, responseStatus: 429, code: "AI_RATE_LIMITED" },
+    { providerStatus: 500, responseStatus: 503, code: "AI_UNAVAILABLE" },
+    { providerStatus: undefined, responseStatus: 503, code: "AI_UNAVAILABLE" },
+  ]
+
+  try {
+    for (const item of cases) {
+      mockChatCompletionsCreate.mockRejectedValueOnce({
+        status: item.providerStatus,
+        code: "provider_error_code",
+        type: "provider_error_type",
+        message: "sensitive provider response",
+        headers: { authorization: "must-not-be-logged" },
+      })
+      const response = await request(app)
+        .post("/api/v1/ai/summary/generate")
+        .set("Authorization", auth(student))
+        .send({ courseId: course._id, forceRegenerate: true })
+      expect(response.status).toBe(item.responseStatus)
+      expect(response.body.code).toBe(item.code)
+    }
+
+    expect(log).toHaveBeenCalledTimes(cases.length)
+    log.mock.calls.forEach(([message, metadata], index) => {
+      expect(message).toBe("Gemini AI provider request failed")
+      expect(metadata).toEqual({
+        status: cases[index].providerStatus ?? null,
+        code: "provider_error_code",
+        type: "provider_error_type",
+        model: "gemini-3.1-flash-lite",
+      })
+      expect(Object.keys(metadata).sort()).toEqual(["code", "model", "status", "type"])
+    })
+    const serializedLogs = JSON.stringify(log.mock.calls)
+    expect(serializedLogs).not.toContain("sensitive provider response")
+    expect(serializedLogs).not.toContain("authorization")
+    expect(serializedLogs).not.toContain("must-not-be-logged")
+  } finally {
+    log.mockRestore()
+  }
 })
 
 test("AI rate limiting returns 429 per authenticated user", async () => {
