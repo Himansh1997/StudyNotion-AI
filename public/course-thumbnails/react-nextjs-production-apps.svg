@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720" role="img" aria-labelledby="title desc">
+  <title id="title">React and Next.js Production Apps</title><desc id="desc">StudyNotion React course thumbnail</desc>
+  <defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#111827"/><stop offset="1" stop-color="#312e81"/></linearGradient></defs><rect width="1280" height="720" rx="36" fill="url(#g)"/>
+  <g transform="translate(935 350)" fill="none" stroke="#67e8f9" stroke-width="12"><ellipse rx="220" ry="80"/><ellipse rx="220" ry="80" transform="rotate(60)"/><ellipse rx="220" ry="80" transform="rotate(120)"/><circle r="25" fill="#67e8f9" stroke="none"/></g><circle cx="1120" cy="120" r="250" fill="#818cf8" opacity=".12"/>
+  <text x="82" y="110" fill="#a5b4fc" font-family="Inter,Segoe UI,sans-serif" font-size="28" font-weight="700" letter-spacing="5">STUDYNOTION • FRONTEND ENGINEERING</text>
+  <text x="82" y="245" fill="white" font-family="Inter,Segoe UI,sans-serif" font-size="82" font-weight="850">React &amp; Next.js</text><text x="82" y="342" fill="#67e8f9" font-family="Inter,Segoe UI,sans-serif" font-size="76" font-weight="850">Production Apps</text>
+  <text x="82" y="446" fill="#cbd5e1" font-family="Inter,Segoe UI,sans-serif" font-size="30">Architecture • State • Performance • Testing</text><rect x="82" y="520" width="430" height="72" rx="36" fill="#67e8f9"/><text x="297" y="566" text-anchor="middle" fill="#0f172a" font-family="Inter,Segoe UI,sans-serif" font-size="28" font-weight="800">BUILD. TEST. SHIP.</text>
+</svg>

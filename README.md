@@ -63,8 +63,22 @@ Keep `.env` files local. The application’s non-AI features continue to run wit
 | `RAZORPAY_SECRET` | For payments | Razorpay signing secret |
 | `PORT` | No | Injected by Render; local default is `4000` |
 | `NODE_ENV` | No | Render sets `production` |
+| `SEED_DEMO_CATALOG` | No | Set to `true` to idempotently create the eight-course portfolio catalog at startup |
 
 Never create a `REACT_APP_OPENAI_API_KEY` variable. CRA embeds every `REACT_APP_*` value into the browser bundle.
+
+### Portfolio demo catalog
+
+Set `SEED_DEMO_CATALOG=true` when this fresh deployment needs realistic sample
+content. At startup the backend creates an approved, non-login demo instructor,
+six categories, eight published courses, 24 sections, and 72 lessons. Course
+artwork is served from `public/course-thumbnails`, and the catalog uses only
+public Cloudinary sample videos already present in the configured cloud.
+
+The seeder uses stable document identifiers and idempotent upserts, so repeated
+deployments do not duplicate the demo content. It never modifies enrollments or
+reviews on existing demo courses. Set the variable to `false` after the first
+successful deployment if automatic reconciliation is no longer wanted.
 
 ### Free Gmail email relay
 

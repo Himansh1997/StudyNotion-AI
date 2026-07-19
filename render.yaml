@@ -23,6 +23,8 @@ services:
         value: 15000
       - key: MAIL_FROM_NAME
         value: StudyNotion
+      - key: SEED_DEMO_CATALOG
+        value: "true"
       - key: OPENAI_API_KEY
         sync: false
       - key: JWT_SECRET
