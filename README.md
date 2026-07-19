@@ -11,7 +11,7 @@ flowchart LR
   API --> Mongo[("MongoDB")]
   API --> Cloudinary["Cloudinary"]
   API --> Razorpay["Razorpay"]
-  API --> Mail["SMTP / Nodemailer"]
+  API --> Mail["Brevo HTTPS email API"]
   Auth --> AI["AI service: context, prompts, schemas, cache"]
   AI --> OpenAI["OpenAI Responses API"]
   AI --> Mongo
@@ -50,10 +50,11 @@ Keep `.env` files local. The application’s non-AI features continue to run wit
 | `OPENAI_API_KEY` | For AI | Server-only OpenAI project key; missing key yields `AI_NOT_CONFIGURED` |
 | `OPENAI_MODEL` | No | Defaults to `gpt-5.6-terra` |
 | `AI_REQUESTS_PER_HOUR` | No | Per-user AI limit; defaults to `30` |
-| `MAIL_HOST` | For email | SMTP hostname |
-| `MAIL_PORT` | No | SMTP port; defaults to `587` |
-| `MAIL_USER` | For email | SMTP username/from address |
-| `MAIL_PASS` | For email | SMTP password |
+| `BREVO_API_KEY` | For email | Server-only Brevo transactional email API key |
+| `MAIL_FROM_ADDRESS` | For email | Verified Brevo sender address |
+| `MAIL_FROM_NAME` | No | Sender display name; defaults to `StudyNotion` |
+| `MAIL_REPLY_TO` | No | Optional reply-to address |
+| `EMAIL_REQUEST_TIMEOUT_MS` | No | Brevo HTTPS request timeout; defaults to `15000` |
 | `CLOUD_NAME` | For uploads | Cloudinary cloud name |
 | `API_KEY` | For uploads | Cloudinary API key |
 | `API_SECRET` | For uploads | Cloudinary API secret |
@@ -121,7 +122,7 @@ Backend tests use `mongodb-memory-server` and mock the OpenAI SDK. They make no 
 ## Fresh deployment
 
 1. Create a new empty GitHub repository. Do not add the old repository as a remote. From this clean project, add only the new remote, review `git status`, then commit source files. `.env`, `node_modules`, `build`, coverage, logs, and temporary files are ignored.
-2. Create a new MongoDB database/user and new credentials for JWT, SMTP, Cloudinary, and Razorpay as appropriate. Do not reuse values from an old test deployment.
+2. Create a new MongoDB database/user and new credentials for JWT, Brevo transactional email, Cloudinary, and Razorpay as appropriate. Do not reuse values from an old test deployment.
 3. In Render, create a new Blueprint/web service from the new repository using `render.yaml`. Enter every `sync: false` value. Initially set `CLIENT_URL` to the eventual Vercel origin; if Vercel is not created yet, update it immediately after step 4. Add `OPENAI_API_KEY` manually when ready.
 4. In Vercel, create a new project from the new repository. Set `REACT_APP_BASE_URL` to the fresh Render URL plus `/api/v1`, and set `REACT_APP_RAZORPAY_KEY` to the public Razorpay key. Deploy.
 5. Update Render `CLIENT_URL` to the exact Vercel production origin (no path), redeploy Render, and confirm `/health`, signup/login, payment sandbox flow, course access, and each AI feature.
