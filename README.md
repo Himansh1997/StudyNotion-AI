@@ -11,7 +11,7 @@ flowchart LR
   API --> Mongo[("MongoDB")]
   API --> Cloudinary["Cloudinary"]
   API --> Razorpay["Razorpay"]
-  API --> Mail["Brevo HTTPS email API"]
+  API --> Mail["Google Apps Script HTTPS email relay"]
   Auth --> AI["AI service: context, prompts, schemas, cache"]
   AI --> OpenAI["OpenAI Responses API"]
   AI --> Mongo
@@ -50,11 +50,11 @@ Keep `.env` files local. The application’s non-AI features continue to run wit
 | `OPENAI_API_KEY` | For AI | Server-only OpenAI project key; missing key yields `AI_NOT_CONFIGURED` |
 | `OPENAI_MODEL` | No | Defaults to `gpt-5.6-terra` |
 | `AI_REQUESTS_PER_HOUR` | No | Per-user AI limit; defaults to `30` |
-| `BREVO_API_KEY` | For email | Server-only Brevo transactional email API key |
-| `MAIL_FROM_ADDRESS` | For email | Verified Brevo sender address |
+| `GMAIL_APPS_SCRIPT_URL` | For email | Google Apps Script web-app `/exec` URL |
+| `EMAIL_WEBHOOK_SECRET` | For email | High-entropy secret shared only by Render and Apps Script |
 | `MAIL_FROM_NAME` | No | Sender display name; defaults to `StudyNotion` |
 | `MAIL_REPLY_TO` | No | Optional reply-to address |
-| `EMAIL_REQUEST_TIMEOUT_MS` | No | Brevo HTTPS request timeout; defaults to `15000` |
+| `EMAIL_REQUEST_TIMEOUT_MS` | No | Gmail relay HTTPS request timeout; defaults to `15000` |
 | `CLOUD_NAME` | For uploads | Cloudinary cloud name |
 | `API_KEY` | For uploads | Cloudinary API key |
 | `API_SECRET` | For uploads | Cloudinary API secret |
@@ -65,6 +65,32 @@ Keep `.env` files local. The application’s non-AI features continue to run wit
 | `NODE_ENV` | No | Render sets `production` |
 
 Never create a `REACT_APP_OPENAI_API_KEY` variable. CRA embeds every `REACT_APP_*` value into the browser bundle.
+
+### Free Gmail email relay
+
+The backend sends OTP, password-reset, contact, and enrollment messages through
+Google Apps Script over HTTPS. This avoids SMTP ports and does not require a
+custom domain. The Gmail account that deploys the script becomes the sender.
+
+1. Open [Google Apps Script](https://script.google.com/) with the Gmail account
+   that should send StudyNotion messages and create a new project.
+2. Replace the project contents with `google-apps-script/Code.gs` from this
+   repository.
+3. In **Project Settings → Script properties**, add
+   `EMAIL_WEBHOOK_SECRET` with a new random value of at least 32 characters.
+4. Select `authorizeEmailRelay` in the editor, click **Run**, and approve the
+   requested send-email permission.
+5. Choose **Deploy → New deployment → Web app**. Execute the app as **Me** and
+   allow access to **Anyone**, then authorize the requested email permission.
+6. Copy the deployment URL ending in `/exec` to Render as
+   `GMAIL_APPS_SCRIPT_URL`. Add the same secret to Render as
+   `EMAIL_WEBHOOK_SECRET`.
+7. Keep `MAIL_FROM_NAME=StudyNotion` and set `MAIL_REPLY_TO` to the address that
+   should receive replies. Never add these server credentials to Vercel.
+
+Consumer Gmail and Apps Script accounts have daily sending quotas, so this
+free relay is appropriate for a portfolio or low-volume deployment, not bulk
+email.
 
 ## AI Learning Hub
 

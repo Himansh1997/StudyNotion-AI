@@ -1,8 +1,8 @@
 const mailSender = require("../utils/mailSender")
 
 const ENVIRONMENT_KEYS = [
-  "BREVO_API_KEY",
-  "MAIL_FROM_ADDRESS",
+  "GMAIL_APPS_SCRIPT_URL",
+  "EMAIL_WEBHOOK_SECRET",
   "MAIL_FROM_NAME",
   "MAIL_REPLY_TO",
   "EMAIL_REQUEST_TIMEOUT_MS",
@@ -20,8 +20,9 @@ const restoreEnvironment = () => {
 }
 
 beforeEach(() => {
-  process.env.BREVO_API_KEY = "test-brevo-api-key"
-  process.env.MAIL_FROM_ADDRESS = "sender@example.test"
+  process.env.GMAIL_APPS_SCRIPT_URL =
+    "https://script.google.com/macros/s/test-deployment-id/exec"
+  process.env.EMAIL_WEBHOOK_SECRET = "a".repeat(64)
   delete process.env.MAIL_FROM_NAME
   process.env.MAIL_REPLY_TO = "reply@example.test"
   process.env.EMAIL_REQUEST_TIMEOUT_MS = "15000"
@@ -33,8 +34,11 @@ afterEach(() => {
   global.fetch = originalFetch
 })
 
-test("sends transactional email through the Brevo HTTPS API", async () => {
-  global.fetch.mockResolvedValue({ ok: true })
+test("sends transactional email through the Gmail Apps Script relay", async () => {
+  global.fetch.mockResolvedValue({
+    ok: true,
+    text: jest.fn().mockResolvedValue(JSON.stringify({ success: true })),
+  })
 
   await expect(
     mailSender("student@example.test", "Course update", "<p>Ready</p>")
@@ -44,27 +48,42 @@ test("sends transactional email through the Brevo HTTPS API", async () => {
 
   expect(global.fetch).toHaveBeenCalledTimes(1)
   const [url, options] = global.fetch.mock.calls[0]
-  expect(url).toBe("https://api.brevo.com/v3/smtp/email")
+  expect(url).toBe(
+    "https://script.google.com/macros/s/test-deployment-id/exec"
+  )
   expect(options).toMatchObject({
     method: "POST",
     headers: {
       accept: "application/json",
-      "api-key": "test-brevo-api-key",
       "content-type": "application/json",
     },
+    redirect: "follow",
   })
   expect(JSON.parse(options.body)).toEqual({
-    sender: { name: "StudyNotion", email: "sender@example.test" },
-    to: [{ email: "student@example.test" }],
+    secret: "a".repeat(64),
+    to: "student@example.test",
     subject: "Course update",
-    htmlContent: "<p>Ready</p>",
-    replyTo: { email: "reply@example.test" },
+    html: "<p>Ready</p>",
+    fromName: "StudyNotion",
+    replyTo: "reply@example.test",
   })
   expect(options.signal).toBeInstanceOf(AbortSignal)
 })
 
 test("rejects safely when required configuration is missing", async () => {
-  delete process.env.BREVO_API_KEY
+  delete process.env.EMAIL_WEBHOOK_SECRET
+
+  await expect(
+    mailSender("student@example.test", "Subject", "Body")
+  ).rejects.toMatchObject({
+    statusCode: 503,
+    code: "MAIL_NOT_CONFIGURED",
+  })
+  expect(global.fetch).not.toHaveBeenCalled()
+})
+
+test("rejects safely when the relay secret is too short", async () => {
+  process.env.EMAIL_WEBHOOK_SECRET = "too-short"
 
   await expect(
     mailSender("student@example.test", "Subject", "Body")
@@ -90,6 +109,34 @@ test("maps a rejected provider request without reading its response body", async
     code: "EMAIL_PROVIDER_REJECTED",
   })
   expect(readProviderBody).not.toHaveBeenCalled()
+})
+
+test("maps a relay rejection without exposing its response details", async () => {
+  global.fetch.mockResolvedValue({
+    ok: true,
+    text: jest
+      .fn()
+      .mockResolvedValue(JSON.stringify({ success: false, code: "SEND_FAILED" })),
+  })
+
+  await expect(
+    mailSender("student@example.test", "Subject", "Body")
+  ).rejects.toMatchObject({
+    statusCode: 502,
+    code: "EMAIL_PROVIDER_REJECTED",
+  })
+})
+
+test("rejects a non-Google relay URL", async () => {
+  process.env.GMAIL_APPS_SCRIPT_URL = "https://example.com/email"
+
+  await expect(
+    mailSender("student@example.test", "Subject", "Body")
+  ).rejects.toMatchObject({
+    statusCode: 503,
+    code: "MAIL_NOT_CONFIGURED",
+  })
+  expect(global.fetch).not.toHaveBeenCalled()
 })
 
 test("aborts and maps a timed-out provider request", async () => {

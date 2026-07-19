@@ -1,7 +1,8 @@
 const ApiError = require("./ApiError")
 
-const BREVO_EMAIL_ENDPOINT = "https://api.brevo.com/v3/smtp/email"
 const DEFAULT_TIMEOUT_MS = 15000
+const MAX_RELAY_RESPONSE_BYTES = 4096
+const MIN_RELAY_SECRET_LENGTH = 32
 
 const getRequestTimeout = () => {
   const configuredTimeout = Number.parseInt(
@@ -14,10 +15,37 @@ const getRequestTimeout = () => {
 }
 
 const mailSender = async (email, title, body) => {
-  const apiKey = process.env.BREVO_API_KEY?.trim()
-  const senderAddress = process.env.MAIL_FROM_ADDRESS?.trim()
+  const relayUrl = process.env.GMAIL_APPS_SCRIPT_URL?.trim()
+  const relaySecret = process.env.EMAIL_WEBHOOK_SECRET?.trim()
 
-  if (!apiKey || !senderAddress) {
+  if (
+    !relayUrl ||
+    !relaySecret ||
+    relaySecret.length < MIN_RELAY_SECRET_LENGTH
+  ) {
+    throw new ApiError(
+      503,
+      "Email delivery is not configured",
+      "MAIL_NOT_CONFIGURED"
+    )
+  }
+
+  let parsedRelayUrl
+  try {
+    parsedRelayUrl = new URL(relayUrl)
+  } catch (_error) {
+    throw new ApiError(
+      503,
+      "Email delivery is not configured",
+      "MAIL_NOT_CONFIGURED"
+    )
+  }
+  if (
+    parsedRelayUrl.protocol !== "https:" ||
+    parsedRelayUrl.hostname !== "script.google.com" ||
+    !parsedRelayUrl.pathname.startsWith("/macros/s/") ||
+    !parsedRelayUrl.pathname.endsWith("/exec")
+  ) {
     throw new ApiError(
       503,
       "Email delivery is not configured",
@@ -31,26 +59,54 @@ const mailSender = async (email, title, body) => {
   const timeout = setTimeout(() => controller.abort(), getRequestTimeout())
 
   const payload = {
-    sender: { name: senderName, email: senderAddress },
-    to: [{ email }],
+    secret: relaySecret,
+    to: email,
     subject: title,
-    htmlContent: body,
+    html: body,
+    fromName: senderName,
   }
-  if (replyToAddress) payload.replyTo = { email: replyToAddress }
+  if (replyToAddress) payload.replyTo = replyToAddress
 
   try {
-    const response = await fetch(BREVO_EMAIL_ENDPOINT, {
+    const response = await fetch(parsedRelayUrl.toString(), {
       method: "POST",
       headers: {
         accept: "application/json",
-        "api-key": apiKey,
         "content-type": "application/json",
       },
       body: JSON.stringify(payload),
+      redirect: "follow",
       signal: controller.signal,
     })
 
     if (!response.ok) {
+      throw new ApiError(
+        502,
+        "Email provider rejected the request",
+        "EMAIL_PROVIDER_REJECTED"
+      )
+    }
+
+    const responseBody = await response.text()
+    if (responseBody.length > MAX_RELAY_RESPONSE_BYTES) {
+      throw new ApiError(
+        502,
+        "Email provider rejected the request",
+        "EMAIL_PROVIDER_REJECTED"
+      )
+    }
+
+    let relayResult
+    try {
+      relayResult = JSON.parse(responseBody)
+    } catch (_error) {
+      throw new ApiError(
+        502,
+        "Email provider rejected the request",
+        "EMAIL_PROVIDER_REJECTED"
+      )
+    }
+    if (relayResult?.success !== true) {
       throw new ApiError(
         502,
         "Email provider rejected the request",
