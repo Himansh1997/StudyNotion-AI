@@ -74,9 +74,11 @@ const roadmapSchema = z.object({
 
 const formatFor = (name, schema) => ({
   type: "json_schema",
-  name,
-  strict: true,
-  schema: z.toJSONSchema(schema, { target: "draft-7" }),
+  json_schema: {
+    name,
+    strict: true,
+    schema: z.toJSONSchema(schema, { target: "draft-7" }),
+  },
 })
 
 module.exports = {

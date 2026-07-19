@@ -1,6 +1,6 @@
 # StudyNotion
 
-StudyNotion is a MERN EdTech application with a React 18/Create React App frontend and a CommonJS Express/Mongoose backend. It includes course creation and enrollment, Razorpay payments, JWT authentication, Cloudinary media, email workflows, and four server-side OpenAI learning tools.
+StudyNotion is a MERN EdTech application with a React 18/Create React App frontend and a CommonJS Express/Mongoose backend. It includes course creation and enrollment, Razorpay payments, JWT authentication, Cloudinary media, email workflows, and four server-side Gemini learning tools.
 
 ## Architecture
 
@@ -13,11 +13,11 @@ flowchart LR
   API --> Razorpay["Razorpay"]
   API --> Mail["Google Apps Script HTTPS email relay"]
   Auth --> AI["AI service: context, prompts, schemas, cache"]
-  AI --> OpenAI["OpenAI Responses API"]
+  AI --> Gemini["Gemini OpenAI-compatible API"]
   AI --> Mongo
 ```
 
-The browser never receives `OPENAI_API_KEY`. AI controllers load trusted course data on the server, remove video URLs and personal/payment data, cap context size, calculate a content hash, call the Responses API with `store: false`, validate Structured Outputs, and persist only application results/history in MongoDB.
+The browser never receives `GEMINI_API_KEY`. AI controllers load trusted course data on the server, remove video URLs and personal/payment data, cap context size, calculate a content hash, call Gemini through the OpenAI-compatible Chat Completions API, validate structured JSON with Zod, and persist only application results/history in MongoDB.
 
 ## Local installation
 
@@ -31,7 +31,7 @@ copy server\.env.example server\.env
 npm run dev
 ```
 
-Keep `.env` files local. The application’s non-AI features continue to run without `OPENAI_API_KEY`; AI generation endpoints return `503` with code `AI_NOT_CONFIGURED`.
+Keep `.env` files local. The application’s non-AI features continue to run without `GEMINI_API_KEY`; AI generation endpoints return `503` with code `AI_NOT_CONFIGURED`.
 
 ### Frontend environment (Vercel)
 
@@ -46,8 +46,8 @@ Keep `.env` files local. The application’s non-AI features continue to run wit
 | `CLIENT_URL` | Yes | Exact fresh Vercel origin; comma-separated origins are supported |
 | `JWT_SECRET` | Yes | New high-entropy JWT signing secret |
 | `MONGODB_URL` | Yes | Fresh MongoDB connection string |
-| `OPENAI_API_KEY` | For AI | Server-only OpenAI project key; missing key yields `AI_NOT_CONFIGURED` |
-| `OPENAI_MODEL` | No | Defaults to `gpt-5.4-mini` |
+| `GEMINI_API_KEY` | For AI | Server-only Gemini API key; missing key yields `AI_NOT_CONFIGURED` |
+| `GEMINI_MODEL` | No | Defaults to `gemini-3.1-flash-lite` |
 | `AI_REQUESTS_PER_HOUR` | No | Per-user AI limit; defaults to `30` |
 | `GMAIL_APPS_SCRIPT_URL` | For email | Google Apps Script web-app `/exec` URL |
 | `EMAIL_WEBHOOK_SECRET` | For email | High-entropy secret shared only by Render and Apps Script |
@@ -64,7 +64,7 @@ Keep `.env` files local. The application’s non-AI features continue to run wit
 | `NODE_ENV` | No | Render sets `production` |
 | `SEED_DEMO_CATALOG` | No | Set to `true` to idempotently create the eight-course portfolio catalog at startup |
 
-Never create a `REACT_APP_OPENAI_API_KEY` variable. CRA embeds every `REACT_APP_*` value into the browser bundle.
+Never create a `REACT_APP_GEMINI_API_KEY` variable. CRA embeds every `REACT_APP_*` value into the browser bundle.
 
 ### Portfolio demo catalog
 
@@ -112,7 +112,7 @@ email.
 - **Doubt Solver:** private, bounded conversations grounded in the selected course scope. Returned citations are replaced with trusted server-loaded IDs/titles; unsupported answers are labeled clearly.
 - **Learning Roadmap:** student-only plans based on real `CourseProgress`, level, goal, weekly hours, and optional target date. Referenced lessons are validated and weekly hours cannot exceed the submitted budget.
 
-AI outputs are based on course and lesson titles/descriptions. Video transcripts are not currently ingested, so answers and summaries cannot cover information available only inside a video. AI output can be inaccurate and should be reviewed. API usage incurs OpenAI charges; configure rate limits and monitor usage before production rollout.
+AI outputs are based on course and lesson titles/descriptions. Video transcripts are not currently ingested, so answers and summaries cannot cover information available only inside a video. AI output can be inaccurate and should be reviewed. API usage incurs Gemini API charges; configure rate limits and monitor usage before production rollout.
 
 ## API summary
 
@@ -157,15 +157,15 @@ npm audit
 npm --prefix server audit
 ```
 
-Backend tests use `mongodb-memory-server` and mock the OpenAI SDK. They make no paid or external model requests.
+Backend tests use `mongodb-memory-server` and mock the OpenAI SDK's Gemini-compatible client. They make no paid or external model requests.
 
 ## Fresh deployment
 
 1. Create a new empty GitHub repository. Do not add the old repository as a remote. From this clean project, add only the new remote, review `git status`, then commit source files. `.env`, `node_modules`, `build`, coverage, logs, and temporary files are ignored.
 2. Create a new MongoDB database/user and new credentials for JWT, Brevo transactional email, Cloudinary, and Razorpay as appropriate. Do not reuse values from an old test deployment.
-3. In Render, create a new Blueprint/web service from the new repository using `render.yaml`. Enter every `sync: false` value. Initially set `CLIENT_URL` to the eventual Vercel origin; if Vercel is not created yet, update it immediately after step 4. Add `OPENAI_API_KEY` manually when ready.
+3. In Render, create a new Blueprint/web service from the new repository using `render.yaml`. Enter every `sync: false` value. Initially set `CLIENT_URL` to the eventual Vercel origin; if Vercel is not created yet, update it immediately after step 4. Add `GEMINI_API_KEY` manually when ready.
 4. In Vercel, create a new project from the new repository. Set `REACT_APP_BASE_URL` to the fresh Render URL plus `/api/v1` and deploy. The backend returns the public Razorpay Key ID with each order; the Razorpay secret remains server-only.
 5. Update Render `CLIENT_URL` to the exact Vercel production origin (no path), redeploy Render, and confirm `/health`, signup/login, payment sandbox flow, course access, and each AI feature.
-6. Leave Render automatic deploys disabled until the smoke test succeeds; enable them later if desired. Configure budget/rate alerts in OpenAI and payment-provider dashboards.
+6. Leave Render automatic deploys disabled until the smoke test succeeds; enable them later if desired. Configure budget/rate alerts in Google AI Studio and payment-provider dashboards.
 
 No deployment, push, remote connection, or commit is performed by this repository setup.

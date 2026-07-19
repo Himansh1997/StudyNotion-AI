@@ -16,7 +16,8 @@ beforeAll(async () => {
 afterEach(async () => {
   const collections = mongoose.connection.collections
   await Promise.all(Object.values(collections).map((collection) => collection.deleteMany({})))
-  delete process.env.OPENAI_API_KEY
+  delete process.env.GEMINI_API_KEY
+  delete process.env.GEMINI_MODEL
   process.env.AI_REQUESTS_PER_HOUR = "30"
 })
 

@@ -1,14 +1,17 @@
-const mockResponsesCreate = jest.fn()
+const mockChatCompletionsCreate = jest.fn()
 const mockRazorpayOrderCreate = jest.fn()
 
 jest.mock("openai", () =>
-  jest.fn().mockImplementation(() => ({ responses: { create: mockResponsesCreate } }))
+  jest.fn().mockImplementation(() => ({
+    chat: { completions: { create: mockChatCompletionsCreate } },
+  }))
 )
 
 jest.mock("../config/razorpay", () => ({
   getRazorpay: () => ({ orders: { create: mockRazorpayOrderCreate } }),
 }))
 
+const OpenAI = require("openai")
 const bcrypt = require("bcryptjs")
 const crypto = require("crypto")
 const jwt = require("jsonwebtoken")
@@ -82,7 +85,7 @@ const createCourse = async ({ instructor, students = [], lessonCount = 2 }) => {
 }
 
 beforeEach(() => {
-  mockResponsesCreate.mockReset()
+  mockChatCompletionsCreate.mockReset()
   mockRazorpayOrderCreate.mockReset()
 })
 
@@ -173,8 +176,11 @@ test("missing API key returns stable AI_NOT_CONFIGURED", async () => {
 })
 
 test("invalid model output is rejected without provider details", async () => {
-  process.env.OPENAI_API_KEY = "test-key-not-sent"
-  mockResponsesCreate.mockResolvedValue({ output_text: "not-json" })
+  process.env.GEMINI_API_KEY = "test-key-not-sent"
+  process.env.GEMINI_MODEL = "gemini-test-model"
+  mockChatCompletionsCreate.mockResolvedValue({
+    choices: [{ message: { content: "not-json" } }],
+  })
   const instructor = await createUser("Instructor", "invalid-output-owner")
   const student = await createUser("Student", "invalid-output-student")
   const { course } = await createCourse({ instructor, students: [student] })
@@ -185,23 +191,38 @@ test("invalid model output is rejected without provider details", async () => {
   expect(response.status).toBe(502)
   expect(response.body.code).toBe("AI_INVALID_RESPONSE")
   expect(JSON.stringify(response.body)).not.toContain("not-json")
+  expect(mockChatCompletionsCreate).toHaveBeenCalledWith(
+    expect.objectContaining({ model: "gemini-test-model" })
+  )
+  expect(OpenAI).toHaveBeenCalledWith(
+    expect.objectContaining({
+      apiKey: "test-key-not-sent",
+      baseURL: "https://generativelanguage.googleapis.com/v1beta/openai/",
+    })
+  )
 })
 
 test("quiz answers stay hidden before server-side grading", async () => {
-  process.env.OPENAI_API_KEY = "test-key-not-sent"
+  process.env.GEMINI_API_KEY = "test-key-not-sent"
   const instructor = await createUser("Instructor", "quiz-owner")
   const student = await createUser("Student", "quiz-student")
   const { course } = await createCourse({ instructor, students: [student] })
-  mockResponsesCreate.mockResolvedValue({
-    output_text: JSON.stringify({
-      questions: Array.from({ length: 5 }, (_, index) => ({
-        question: `Question ${index + 1}`,
-        options: ["A", "B", "C", "D"],
-        correctOptionIndex: index % 4,
-        explanation: `Explanation ${index + 1}`,
-        relatedContentTitle: "Core concepts",
-      })),
-    }),
+  mockChatCompletionsCreate.mockResolvedValue({
+    choices: [
+      {
+        message: {
+          content: JSON.stringify({
+            questions: Array.from({ length: 5 }, (_, index) => ({
+              question: `Question ${index + 1}`,
+              options: ["A", "B", "C", "D"],
+              correctOptionIndex: index % 4,
+              explanation: `Explanation ${index + 1}`,
+              relatedContentTitle: "Core concepts",
+            })),
+          }),
+        },
+      },
+    ],
   })
   const generated = await request(app)
     .post("/api/v1/ai/quiz/generate")
@@ -210,6 +231,16 @@ test("quiz answers stay hidden before server-side grading", async () => {
   expect(generated.status).toBe(201)
   expect(generated.body.quiz.questions[0]).not.toHaveProperty("correctOptionIndex")
   expect(generated.body.quiz.questions[0]).not.toHaveProperty("explanation")
+  expect(mockChatCompletionsCreate).toHaveBeenCalledWith(
+    expect.objectContaining({
+      model: "gemini-3.1-flash-lite",
+      messages: expect.any(Array),
+      response_format: expect.objectContaining({
+        type: "json_schema",
+        json_schema: expect.objectContaining({ name: "course_quiz", strict: true }),
+      }),
+    })
+  )
 
   const graded = await request(app)
     .post(`/api/v1/ai/quiz/${generated.body.quiz.id}/submit`)
@@ -240,7 +271,7 @@ test("conversations are private to their owner", async () => {
 })
 
 test("roadmap uses authenticated progress and validates real references", async () => {
-  process.env.OPENAI_API_KEY = "test-key-not-sent"
+  process.env.GEMINI_API_KEY = "test-key-not-sent"
   const instructor = await createUser("Instructor", "roadmap-owner")
   const student = await createUser("Student", "roadmap-student")
   const { course, section, lessons } = await createCourse({ instructor, students: [student] })
@@ -248,25 +279,31 @@ test("roadmap uses authenticated progress and validates real references", async 
     { courseID: course._id, userId: student._id },
     { $addToSet: { completedVideos: lessons[0]._id } }
   )
-  mockResponsesCreate.mockResolvedValue({
-    output_text: JSON.stringify({
-      title: "Personal roadmap",
-      goal: "Complete the secure course",
-      totalWeeks: 1,
-      weeklyPlan: [
-        {
-          weekNumber: 1,
-          objective: "Finish remaining concepts",
-          relatedContent: [{ id: String(section._id), title: "ignored", type: "section" }],
-          estimatedHours: 4,
-          activities: ["Review the incomplete lesson"],
-          quizCheckpoint: "Take a quiz",
-          milestone: "Course reviewed",
+  mockChatCompletionsCreate.mockResolvedValue({
+    choices: [
+      {
+        message: {
+          content: JSON.stringify({
+            title: "Personal roadmap",
+            goal: "Complete the secure course",
+            totalWeeks: 1,
+            weeklyPlan: [
+              {
+                weekNumber: 1,
+                objective: "Finish remaining concepts",
+                relatedContent: [{ id: String(section._id), title: "ignored", type: "section" }],
+                estimatedHours: 4,
+                activities: ["Review the incomplete lesson"],
+                quizCheckpoint: "Take a quiz",
+                milestone: "Course reviewed",
+              },
+            ],
+            finalProjectSuggestion: "Build a secure checklist",
+            revisionStrategy: "Use spaced review",
+          }),
         },
-      ],
-      finalProjectSuggestion: "Build a secure checklist",
-      revisionStrategy: "Use spaced review",
-    }),
+      },
+    ],
   })
   const response = await request(app)
     .post("/api/v1/ai/roadmap/generate")
