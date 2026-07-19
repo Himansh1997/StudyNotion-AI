@@ -72,12 +72,25 @@ const roadmapSchema = z.object({
   revisionStrategy: boundedText(3000),
 })
 
+const UNSUPPORTED_PROVIDER_SCHEMA_KEYS = new Set(["$schema", "minLength", "maxLength"])
+
+const sanitizeProviderSchema = (value) => {
+  if (Array.isArray(value)) return value.map(sanitizeProviderSchema)
+  if (!value || typeof value !== "object") return value
+
+  return Object.fromEntries(
+    Object.entries(value)
+      .filter(([key]) => !UNSUPPORTED_PROVIDER_SCHEMA_KEYS.has(key))
+      .map(([key, nestedValue]) => [key, sanitizeProviderSchema(nestedValue)])
+  )
+}
+
 const formatFor = (name, schema) => ({
   type: "json_schema",
   json_schema: {
     name,
     strict: true,
-    schema: z.toJSONSchema(schema, { target: "draft-7" }),
+    schema: sanitizeProviderSchema(z.toJSONSchema(schema, { target: "draft-7" })),
   },
 })
 
