@@ -7,7 +7,7 @@ import Plan_your_lessons from "../../../assets/Images/Plan_your_lessons.svg";
 
 const LearningLanguageSection = () => {
   return (
-    <div>
+    <section id="learning-tools" tabIndex={-1} className="scroll-mt-24">
         <div className="text-4xl font-semibold text-center my-10">
             Your swiss knife for
             <HighlightText text={"learning any language"} />
@@ -36,11 +36,11 @@ const LearningLanguageSection = () => {
           </div>
 
           <div className="w-fit mx-auto lg:mb-20 mb-8 -mt-5">
-            <CTAButton active={true} linkto={"/signup"}>
+            <CTAButton active={true} linkto={"#learning-tools"}>
               <div className="">Learn More</div>
             </CTAButton>
           </div>
-    </div>
+    </section>
   )
 }
 

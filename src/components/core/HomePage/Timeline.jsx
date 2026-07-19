@@ -31,7 +31,7 @@ const TimeLine = [
 
 const TimelineSection = () => {
   return (
-    <div>
+    <section id="how-it-works" tabIndex={-1} className="scroll-mt-24">
       <div className="flex flex-col lg:flex-row gap-20 mb-20 items-center">
         <div className="lg:w-[45%] flex flex-col gap-14 lg:gap-3">
           {TimeLine.map((ele, i) => {
@@ -81,7 +81,7 @@ const TimelineSection = () => {
           />
         </div>
       </div>
-    </div>
+    </section>
   );
 };
 
