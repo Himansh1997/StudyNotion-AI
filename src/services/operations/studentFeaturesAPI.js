@@ -8,6 +8,17 @@ import { studentEndpoints } from "../apis"
 
 const { COURSE_PAYMENT_API, COURSE_VERIFY_API } = studentEndpoints
 
+const paymentErrorMessage = (error) => {
+  const code = error?.response?.data?.code
+  const messages = {
+    PAYMENTS_NOT_CONFIGURED: "Test payments are not configured yet.",
+    ALREADY_ENROLLED: "You are already enrolled in this course.",
+    COURSE_NOT_FOUND: "This course is not available for purchase.",
+    INVALID_PAYMENT_AMOUNT: "This course has an invalid price.",
+  }
+  return messages[code] || error?.response?.data?.message || "Could not initiate payment."
+}
+
 const loadScript = (src) =>
   new Promise((resolve) => {
     const script = document.createElement("script")
@@ -31,8 +42,11 @@ export async function BuyCourse(token, courses, userDetails, navigate, dispatch)
       { Authorization: `Bearer ${token}` }
     )
     const order = orderResponse.data.data
+    if (!order?.keyId) {
+      throw new Error("Razorpay Key ID was not returned by the server")
+    }
     const options = {
-      key: process.env.REACT_APP_RAZORPAY_KEY,
+      key: order.keyId,
       currency: order.currency,
       amount: String(order.amount),
       order_id: order.id,
@@ -48,8 +62,8 @@ export async function BuyCourse(token, courses, userDetails, navigate, dispatch)
     const paymentObject = new window.Razorpay(options)
     paymentObject.open()
     paymentObject.on("payment.failed", () => toast.error("Payment failed. No enrollment was made."))
-  } catch {
-    toast.error("Could not initiate payment.")
+  } catch (error) {
+    toast.error(paymentErrorMessage(error))
   } finally {
     toast.dismiss(toastId)
   }
