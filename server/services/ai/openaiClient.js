@@ -3,6 +3,16 @@ const ApiError = require("../../utils/ApiError")
 
 let client
 
+const LEGACY_CODEX_MODELS = new Set(["gpt-5.6-sol", "gpt-5.6-terra"])
+
+const getModel = () => {
+  const configuredModel = String(process.env.OPENAI_MODEL || "").trim()
+  if (!configuredModel || LEGACY_CODEX_MODELS.has(configuredModel)) {
+    return "gpt-5.4-mini"
+  }
+  return configuredModel
+}
+
 const getClient = () => {
   if (!process.env.OPENAI_API_KEY) {
     throw new ApiError(
@@ -26,7 +36,7 @@ const generateStructured = async ({ input, format, schema, maxOutputTokens = 600
   let response
   try {
     response = await getClient().responses.create({
-      model: process.env.OPENAI_MODEL || "gpt-5.4-mini",
+      model: getModel(),
       input,
       store: false,
       max_output_tokens: maxOutputTokens,
@@ -50,4 +60,4 @@ const generateStructured = async ({ input, format, schema, maxOutputTokens = 600
   return validated.data
 }
 
-module.exports = { generateStructured }
+module.exports = { generateStructured, getModel }
