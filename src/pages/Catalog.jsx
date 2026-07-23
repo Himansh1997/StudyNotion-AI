@@ -18,17 +18,26 @@ function Catalog() {
   const [active, setActive] = useState(1)
   const [catalogPageData, setCatalogPageData] = useState(null)
   const [categoryId, setCategoryId] = useState("")
+  const [catalogError, setCatalogError] = useState(false)
   // Fetch All Categories
   useEffect(() => {
     ;(async () => {
+      setCatalogError(false)
+      setCatalogPageData(null)
+      setCategoryId("")
       try {
         const res = await apiConnector("GET", categories.CATEGORIES_API)
-        const category_id = res?.data?.data?.filter(
+        const category = res?.data?.data?.find(
           (ct) => ct.name.split(" ").join("-").toLowerCase() === catalogName
-        )[0]._id
-        setCategoryId(category_id)
+        )
+        if (!category?._id) {
+          setCatalogError(true)
+          return
+        }
+        setCategoryId(category._id)
       } catch (error) {
         console.log("Could not fetch Categories.", error)
+        setCatalogError(true)
       }
     })()
   }, [catalogName])
@@ -37,14 +46,22 @@ function Catalog() {
       ;(async () => {
         try {
           const res = await getCatalogPageData(categoryId)
+          if (!res?.success) {
+            setCatalogError(true)
+            return
+          }
           setCatalogPageData(res)
         } catch (error) {
           console.log(error)
+          setCatalogError(true)
         }
       })()
     }
   }, [categoryId])
 
+  if (catalogError) {
+    return <Error />
+  }
   if (loading || !catalogPageData) {
     return (
       <div className="grid min-h-[calc(100vh-3.5rem)] place-items-center">
