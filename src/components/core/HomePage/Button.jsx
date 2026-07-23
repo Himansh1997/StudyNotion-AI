@@ -37,7 +37,7 @@ export const handleHashNavigation = (event, destination) => {
 }
 
 const Button = ({ children, active, linkto }) => {
-  const className = `rounded-md px-6 py-3 text-center text-[13px] font-bold shadow-[2px_2px_0px_0px_rgba(255,255,255,0.18)] transition-all duration-200 hover:scale-95 hover:shadow-none sm:text-[16px] ${
+  const className = `inline-flex max-w-full items-center justify-center rounded-md px-6 py-3 text-center text-[13px] font-bold leading-6 shadow-[2px_2px_0px_0px_rgba(255,255,255,0.18)] transition-all duration-200 hover:scale-95 hover:shadow-none sm:text-[16px] ${
     active ? "bg-yellow-50 text-black" : "bg-richblack-800"
   }`
 
