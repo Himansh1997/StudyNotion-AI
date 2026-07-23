@@ -28,7 +28,10 @@ const AIConversation = require("../models/AIConversation")
 const PendingPayment = require("../models/PendingPayment")
 
 const auth = (user) =>
-  `Bearer ${jwt.sign({ id: user._id, email: user.email }, process.env.JWT_SECRET)}`
+  `Bearer ${jwt.sign(
+    { id: user._id, email: user.email },
+    process.env.JWT_SECRET
+  )}`
 
 const geminiResponse = (content) => ({
   choices: [{ message: { content: JSON.stringify(content) } }],
@@ -103,7 +106,10 @@ test("pending instructors can sign in but approved instructor routes remain bloc
     password: "strong-password",
   })
   expect(login.status).toBe(200)
-  expect(login.body.user).toMatchObject({ accountType: "Instructor", approved: false })
+  expect(login.body.user).toMatchObject({
+    accountType: "Instructor",
+    approved: false,
+  })
   expect(login.body.message).toMatch(/awaiting approval/i)
 
   const protectedRoute = await request(app)
@@ -114,11 +120,15 @@ test("pending instructors can sign in but approved instructor routes remain bloc
 })
 
 test("unauthenticated AI access and course deletion are rejected", async () => {
-  const aiResponse = await request(app).post("/api/v1/ai/quiz/generate").send({})
+  const aiResponse = await request(app)
+    .post("/api/v1/ai/quiz/generate")
+    .send({})
   expect(aiResponse.status).toBe(401)
   expect(aiResponse.body.code).toBe("AUTH_REQUIRED")
 
-  const deletion = await request(app).delete("/api/v1/course/deleteCourse").send({})
+  const deletion = await request(app)
+    .delete("/api/v1/course/deleteCourse")
+    .send({})
   expect(deletion.status).toBe(401)
 })
 
@@ -176,7 +186,10 @@ test("missing API key returns stable AI_NOT_CONFIGURED", async () => {
     .set("Authorization", auth(student))
     .send({ courseId: course._id })
   expect(response.status).toBe(503)
-  expect(response.body).toMatchObject({ success: false, code: "AI_NOT_CONFIGURED" })
+  expect(response.body).toMatchObject({
+    success: false,
+    code: "AI_NOT_CONFIGURED",
+  })
 })
 
 test("invalid model output is rejected without provider details", async () => {
@@ -234,7 +247,9 @@ test("quiz answers stay hidden before server-side grading", async () => {
     .send({ courseId: course._id, questionCount: 5, difficulty: "Medium" })
   expect(generated.status).toBe(201)
   expect(generated.body.cached).toBe(false)
-  expect(generated.body.quiz.questions[0]).not.toHaveProperty("correctOptionIndex")
+  expect(generated.body.quiz.questions[0]).not.toHaveProperty(
+    "correctOptionIndex"
+  )
   expect(generated.body.quiz.questions[0]).not.toHaveProperty("explanation")
   expect(mockChatCompletionsCreate).toHaveBeenCalledWith(
     expect.objectContaining({
@@ -243,7 +258,10 @@ test("quiz answers stay hidden before server-side grading", async () => {
       max_tokens: 6000,
       response_format: expect.objectContaining({
         type: "json_schema",
-        json_schema: expect.objectContaining({ name: "course_quiz", strict: true }),
+        json_schema: expect.objectContaining({
+          name: "course_quiz",
+          strict: true,
+        }),
       }),
     })
   )
@@ -254,7 +272,10 @@ test("quiz answers stay hidden before server-side grading", async () => {
     .send({ answers: [0, 1, 2, 3, 0] })
   expect(graded.status).toBe(200)
   expect(graded.body.score).toBe(5)
-  expect(graded.body.results[0]).toMatchObject({ correctOptionIndex: 0, correct: true })
+  expect(graded.body.results[0]).toMatchObject({
+    correctOptionIndex: 0,
+    correct: true,
+  })
   expect(graded.body.results[0].explanation).toBe("Explanation 1")
 })
 
@@ -262,7 +283,10 @@ test("summary generation calls Gemini instead of returning cached data", async (
   process.env.GEMINI_API_KEY = "test-key-not-sent"
   const instructor = await createUser("Instructor", "summary-owner")
   const student = await createUser("Student", "summary-student")
-  const { course, section } = await createCourse({ instructor, students: [student] })
+  const { course, section } = await createCourse({
+    instructor,
+    students: [student],
+  })
   mockChatCompletionsCreate.mockResolvedValue(
     geminiResponse({
       overview: "A fresh grounded overview",
@@ -297,7 +321,10 @@ test("summary generation calls Gemini instead of returning cached data", async (
       max_tokens: 8000,
       response_format: expect.objectContaining({
         type: "json_schema",
-        json_schema: expect.objectContaining({ name: "course_summary", strict: true }),
+        json_schema: expect.objectContaining({
+          name: "course_summary",
+          strict: true,
+        }),
       }),
     })
   )
@@ -307,12 +334,17 @@ test("doubt solver creates a fresh Gemini-backed conversation", async () => {
   process.env.GEMINI_API_KEY = "test-key-not-sent"
   const instructor = await createUser("Instructor", "doubt-owner")
   const student = await createUser("Student", "doubt-student")
-  const { course, section } = await createCourse({ instructor, students: [student] })
+  const { course, section } = await createCourse({
+    instructor,
+    students: [student],
+  })
   mockChatCompletionsCreate.mockResolvedValue(
     geminiResponse({
       answer: "A grounded answer from the course descriptions.",
       supportedByCourse: true,
-      citations: [{ id: String(section._id), title: "ignored", type: "section" }],
+      citations: [
+        { id: String(section._id), title: "ignored", type: "section" },
+      ],
       suggestedFollowUpQuestions: ["What should I review next?"],
     })
   )
@@ -323,7 +355,9 @@ test("doubt solver creates a fresh Gemini-backed conversation", async () => {
     .send({ courseId: course._id, question: "What are the core concepts?" })
 
   expect(response.status).toBe(201)
-  expect(response.body.answer).toBe("A grounded answer from the course descriptions.")
+  expect(response.body.answer).toBe(
+    "A grounded answer from the course descriptions."
+  )
   expect(response.body.citations[0]).toMatchObject({
     id: String(section._id),
     title: "Core concepts",
@@ -334,17 +368,88 @@ test("doubt solver creates a fresh Gemini-backed conversation", async () => {
       max_tokens: 5000,
       response_format: expect.objectContaining({
         type: "json_schema",
-        json_schema: expect.objectContaining({ name: "course_answer", strict: true }),
+        json_schema: expect.objectContaining({
+          name: "course_answer",
+          strict: true,
+        }),
       }),
     })
   )
+})
+
+test("doubt solver repairs invalid structured output once", async () => {
+  process.env.GEMINI_API_KEY = "test-key-not-sent"
+  const instructor = await createUser("Instructor", "doubt-repair-owner")
+  const student = await createUser("Student", "doubt-repair-student")
+  const { course } = await createCourse({ instructor, students: [student] })
+  mockChatCompletionsCreate
+    .mockResolvedValueOnce(
+      geminiResponse({
+        answer: "",
+        supportedByCourse: true,
+        citations: [],
+        suggestedFollowUpQuestions: [],
+      })
+    )
+    .mockResolvedValueOnce(
+      geminiResponse({
+        answer: "A valid general explanation.",
+        supportedByCourse: false,
+        citations: [],
+        suggestedFollowUpQuestions: ["Which course lesson should I review?"],
+      })
+    )
+
+  const response = await request(app)
+    .post("/api/v1/ai/conversations")
+    .set("Authorization", auth(student))
+    .send({ courseId: course._id, question: "What is React?" })
+
+  expect(response.status).toBe(201)
+  expect(response.body.answer).toBe("A valid general explanation.")
+  expect(mockChatCompletionsCreate).toHaveBeenCalledTimes(2)
+  expect(mockChatCompletionsCreate.mock.calls[1][0]).toMatchObject({
+    response_format: { type: "json_object" },
+  })
+  expect(
+    mockChatCompletionsCreate.mock.calls[1][0].messages.at(-1).content
+  ).toContain("answer")
+})
+
+test("doubt solver discards fabricated citations instead of failing the answer", async () => {
+  process.env.GEMINI_API_KEY = "test-key-not-sent"
+  const instructor = await createUser("Instructor", "doubt-citation-owner")
+  const student = await createUser("Student", "doubt-citation-student")
+  const { course } = await createCourse({ instructor, students: [student] })
+  mockChatCompletionsCreate.mockResolvedValue(
+    geminiResponse({
+      answer: "A useful answer with an untrusted model citation removed.",
+      supportedByCourse: true,
+      citations: [
+        { id: "000000000000000000000000", title: "Invented", type: "lesson" },
+      ],
+      suggestedFollowUpQuestions: [],
+    })
+  )
+
+  const response = await request(app)
+    .post("/api/v1/ai/conversations")
+    .set("Authorization", auth(student))
+    .send({ courseId: course._id, question: "Explain the course." })
+
+  expect(response.status).toBe(201)
+  expect(response.body.citations).toEqual([])
+  expect(response.body.supportedByCourse).toBe(false)
 })
 
 test("conversations are private to their owner", async () => {
   const instructor = await createUser("Instructor", "conversation-owner")
   const owner = await createUser("Student", "conversation-student")
   const stranger = await createUser("Student", "conversation-stranger")
-  const { course } = await createCourse({ instructor, students: [owner, stranger] })
+  const { course } = await createCourse({
+    instructor,
+    students: [owner, stranger],
+  })
   const conversation = await AIConversation.create({
     userId: owner._id,
     courseId: course._id,
@@ -362,7 +467,10 @@ test("roadmap uses authenticated progress and validates real references", async 
   process.env.GEMINI_API_KEY = "test-key-not-sent"
   const instructor = await createUser("Instructor", "roadmap-owner")
   const student = await createUser("Student", "roadmap-student")
-  const { course, section, lessons } = await createCourse({ instructor, students: [student] })
+  const { course, section, lessons } = await createCourse({
+    instructor,
+    students: [student],
+  })
   await CourseProgress.updateOne(
     { courseID: course._id, userId: student._id },
     { $addToSet: { completedVideos: lessons[0]._id } }
@@ -379,7 +487,13 @@ test("roadmap uses authenticated progress and validates real references", async 
               {
                 weekNumber: 1,
                 objective: "Finish remaining concepts",
-                relatedContent: [{ id: String(section._id), title: "ignored", type: "section" }],
+                relatedContent: [
+                  {
+                    id: String(section._id),
+                    title: "ignored",
+                    type: "section",
+                  },
+                ],
                 estimatedHours: 4,
                 activities: ["Review the incomplete lesson"],
                 quizCheckpoint: "Take a quiz",
@@ -409,17 +523,19 @@ test("roadmap uses authenticated progress and validates real references", async 
     id: String(section._id),
     title: "Core concepts",
   })
-  expect(response.body.roadmap.weeklyPlan[0].estimatedHours).toBeLessThanOrEqual(5)
+  expect(
+    response.body.roadmap.weeklyPlan[0].estimatedHours
+  ).toBeLessThanOrEqual(5)
   expect(mockChatCompletionsCreate).toHaveBeenCalledWith(
     expect.objectContaining({
       model: "gemini-3.1-flash-lite",
       max_tokens: 10_000,
-      response_format: expect.objectContaining({
-        type: "json_schema",
-        json_schema: expect.objectContaining({ name: "learning_roadmap", strict: true }),
-      }),
+      response_format: { type: "json_object" },
     })
   )
+  expect(
+    mockChatCompletionsCreate.mock.calls[0][0].messages.at(-1).content
+  ).toContain("weeklyPlan")
 })
 
 test("provider failures are classified and logged without sensitive fields", async () => {
@@ -439,13 +555,17 @@ test("provider failures are classified and logged without sensitive fields", asy
 
   try {
     for (const item of cases) {
-      mockChatCompletionsCreate.mockRejectedValueOnce({
+      const providerError = {
         status: item.providerStatus,
         code: "provider_error_code",
         type: "provider_error_type",
         message: "sensitive provider response",
         headers: { authorization: "must-not-be-logged" },
-      })
+      }
+      mockChatCompletionsCreate.mockRejectedValueOnce(providerError)
+      if (item.providerStatus === 400) {
+        mockChatCompletionsCreate.mockRejectedValueOnce(providerError)
+      }
       const response = await request(app)
         .post("/api/v1/ai/summary/generate")
         .set("Authorization", auth(student))
@@ -454,16 +574,20 @@ test("provider failures are classified and logged without sensitive fields", asy
       expect(response.body.code).toBe(item.code)
     }
 
-    expect(log).toHaveBeenCalledTimes(cases.length)
-    log.mock.calls.forEach(([message, metadata], index) => {
+    expect(log).toHaveBeenCalledTimes(cases.length + 1)
+    log.mock.calls.forEach(([message, metadata]) => {
       expect(message).toBe("Gemini AI provider request failed")
-      expect(metadata).toEqual({
-        status: cases[index].providerStatus ?? null,
+      expect(metadata).toMatchObject({
         code: "provider_error_code",
         type: "provider_error_type",
         model: "gemini-3.1-flash-lite",
       })
-      expect(Object.keys(metadata).sort()).toEqual(["code", "model", "status", "type"])
+      expect(Object.keys(metadata).sort()).toEqual([
+        "code",
+        "model",
+        "status",
+        "type",
+      ])
     })
     const serializedLogs = JSON.stringify(log.mock.calls)
     expect(serializedLogs).not.toContain("sensitive provider response")
@@ -523,7 +647,9 @@ test("stored payment cannot be switched to another course or reused", async () =
   const paid = await Course.findById(paidCourse._id)
   const switched = await Course.findById(switchedCourse._id)
   expect(paid.studentsEnroled.map(String)).toContain(String(student._id))
-  expect(switched.studentsEnroled.map(String)).not.toContain(String(student._id))
+  expect(switched.studentsEnroled.map(String)).not.toContain(
+    String(student._id)
+  )
 
   const reused = await request(app)
     .post("/api/v1/payment/verifyPayment")
@@ -551,5 +677,7 @@ test("payment order returns the public Razorpay Key ID but never the secret", as
     amount: 49900,
     currency: "INR",
   })
-  expect(JSON.stringify(response.body)).not.toContain(process.env.RAZORPAY_SECRET)
+  expect(JSON.stringify(response.body)).not.toContain(
+    process.env.RAZORPAY_SECRET
+  )
 })
