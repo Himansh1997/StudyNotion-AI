@@ -51,3 +51,17 @@ test("normal destinations remain React Router links", () => {
     "/contact"
   )
 })
+
+test("CTA links keep a stable flex box when their content is a block element", () => {
+  render(
+    <MemoryRouter>
+      <Button active linkto="/contact">
+        <div className="flex items-center gap-3">Start Teaching Today</div>
+      </Button>
+    </MemoryRouter>
+  )
+
+  expect(
+    screen.getByRole("link", { name: "Start Teaching Today" })
+  ).toHaveClass("inline-flex", "items-center", "justify-center", "max-w-full")
+})
